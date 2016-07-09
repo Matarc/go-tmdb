@@ -32,6 +32,11 @@ func Init(apiKey string) *TMDb {
 	return &TMDb{apiKey: apiKey}
 }
 
+type httpRes struct {
+	res *http.Response
+	err error
+}
+
 // ToJSON converts from struct to JSON
 func ToJSON(payload interface{}) (string, error) {
 	jsonRes := []byte("{}") //Default value in case of error
@@ -50,7 +55,21 @@ func getTmdb(url string, payload interface{}) (interface{}, error) {
 		<-time.After(now.Sub(rateLimitReset))
 	}
 
-	res, err := http.Get(url)
+	timer := time.NewTimer(time.Second * 15)
+	resCh := make(chan httpRes)
+	go func() {
+		res, err := http.Get(url)
+		resCh <- httpRes{res, err}
+	}()
+	var res *http.Response
+	var err error
+	select {
+	case <-timer.C:
+		return payload, fmt.Errorf("http.Get timeout")
+	case httpRes := <-resCh:
+		res = httpRes.res
+		err = httpRes.err
+	}
 	if res.Header.Get(`x-ratelimit-remaining`) == `0` { // Out of requests for this period
 		reset := res.Header.Get(`x-ratelimit-reset`)
 		iReset, err := strconv.ParseInt(reset, 10, 64)
