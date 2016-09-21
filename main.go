@@ -52,7 +52,7 @@ func getTmdb(url string, payload interface{}) (interface{}, error) {
 	now := time.Now()
 	if rateLimitReset.After(now) { // We have a reset time in the future, so we're out of requests
 		// Wait for rate limiter to be reset
-		<-time.After(now.Sub(rateLimitReset))
+		<-time.After(rateLimitReset.Sub(now))
 	}
 
 	timer := time.NewTimer(time.Second * 15)
@@ -75,7 +75,7 @@ func getTmdb(url string, payload interface{}) (interface{}, error) {
 		iReset, err := strconv.ParseInt(reset, 10, 64)
 		if err == nil {
 			// Set the reset time here, the next request will trip it
-			rateLimitReset = time.Unix(iReset, 0)
+			rateLimitReset = time.Unix(iReset+1, 0)
 		}
 	}
 
